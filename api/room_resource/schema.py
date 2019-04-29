@@ -163,9 +163,9 @@ class CreateResource(graphene.Mutation):
         resource = ResourceModel(**kwargs)
         payload = {
             'model': ResourceModel, 'field': 'name', 'value':  kwargs['name']
-            }
+        }
         with SaveContextManager(
-          resource, 'Resource', payload
+            resource, 'Resource', payload
         ):
             return CreateResource(resource=resource)
 
@@ -182,13 +182,30 @@ class UpdateRoomResource(graphene.Mutation):
 
     @Auth.user_roles('Admin')
     def mutate(self, info, resource_id, **kwargs):
-        validate_empty_fields(**kwargs)
+        name = {key: value for key, value in kwargs.items() if key ==
+                'name'}
+        validate_empty_fields(**name)
         query = Resource.get_query(info)
+        quantity = kwargs.get('quantity')
+        room_resources = RoomResource.get_query(info).filter(
+            RoomResourceModel.resource_id == resource_id
+        ).all()
+        assigned_quantity = sum(
+            [room_resource.quantity for room_resource in room_resources])
         active_resources = query.filter(ResourceModel.state == "active")
         exact_resource = active_resources.filter(
             ResourceModel.id == resource_id).first()
+
         if not exact_resource:
             raise GraphQLError("Resource not found")
+        if quantity and quantity < 0:
+            raise GraphQLError(
+                'Quantity cannot be less than zero'
+            )
+        if quantity < assigned_quantity:
+            raise GraphQLError(
+                "Cannot update resource to value lower than total number\
+                 already assigned to rooms")
         update_entity_fields(exact_resource, **kwargs)
         exact_resource.save()
         return UpdateRoomResource(resource=exact_resource)
@@ -245,7 +262,6 @@ class Query(graphene.ObjectType):
 
     @Auth.user_roles('Admin')
     def resolve_get_resources_by_room_id(self, info, room_id):
-        # Get resources of a specific room
         exact_room = RoomSQLAlchemyObject.get_query(info).filter(
             RoomModel.id == room_id,
             RoomModel.state == "active"
@@ -279,7 +295,7 @@ class Mutation(graphene.ObjectType):
             \n- name: The name field of the resource[required]\
             \n- room_id: The unique identifier of the room where the resource \
             is created[required]\n- quantity: The number of resources[required]"
-                )
+    )
     update_room_resource = UpdateRoomResource.Field(
         description="Updates the room resources fields below\
             \n- name: The name field of the resource\
