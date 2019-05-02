@@ -10,7 +10,7 @@ from helpers.auth.authentication import Auth
 from utilities.validator import verify_email
 from helpers.pagination.paginate import Paginate, validate_page
 from helpers.auth.error_handler import SaveContextManager
-from helpers.email.email import email_invite
+from helpers.email.email import email_invite, admin_invite
 from helpers.user_filter.user_filter import user_filter
 from utilities.utility import update_entity_fields
 from api.role.schema import Role
@@ -159,6 +159,10 @@ class ChangeUserRole(graphene.Mutation):
 
         exact_user.roles[0] = new_role
         exact_user.save()
+
+        admin = get_user_from_db()
+        if not admin_invite(email, admin.__dict__['name'], 'danny'):
+            raise GraphQLError("Role changed but email not sent")
         return ChangeUserRole(user=exact_user)
 
 

@@ -24,3 +24,16 @@ def email_invite(email, admin):
         render_template('invite.html', name=admin, domain=Config.DOMAIN_NAME))
 
     return email.send()
+
+def admin_invite(user_email, admin, user_name):
+    email = SendEmail(
+        'Admin Invite',
+        user_email,
+        render_template(
+            'admin_invite.html',
+            admin_name=admin,
+            user_name=user_name
+        )
+    )
+
+    return email.send()
